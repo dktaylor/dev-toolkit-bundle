@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# Pre-commit hook: coding-standard check + static analysis.
+# Enable it once per clone with:  make hooks   (or: git config core.hooksPath .githooks)
+#
+set -e
+
+echo "› Checking coding standards (composer cs-check)..."
+composer cs-check
+
+echo "› Running static analysis (composer phpstan)..."
+composer phpstan
+
+echo "✓ Pre-commit checks passed."
