@@ -14,7 +14,6 @@
         "symfony/yaml": "^7.1 || ^8.0"
     },
     "require-dev": {
-        "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^11.0"
     },
     "autoload": {
@@ -28,13 +27,45 @@
         }
     },
     "scripts": {
-        "test": ["phpunit"],
-        "phpstan": ["phpstan analyse src --level=6 --no-progress"]
+        "install-tools": [
+            "Dktaylor\\DevToolkit\\Composer\\ScriptHandler::installTools"
+        ],
+        "post-install-cmd": [
+            "@install-tools"
+        ],
+        "post-update-cmd": [
+            "@install-tools"
+        ],
+        "phpstan": [
+            "tools/phpstan/vendor/bin/phpstan analyse --no-progress"
+        ],
+        "cs-fix": [
+            "tools/php-cs-fixer/vendor/bin/php-cs-fixer fix"
+        ],
+        "cs-check": [
+            "tools/php-cs-fixer/vendor/bin/php-cs-fixer fix --dry-run --diff"
+        ],
+        "security-check": [
+            "composer audit"
+        ],
+        "test": [
+            "phpunit"
+        ],
+        "quality": [
+            "@phpstan",
+            "@cs-check",
+            "@security-check",
+            "@test"
+        ]
     },
     "extra": {
         "branch-alias": {
             "dev-main": "0.1.x-dev"
-        }
+        },
+        "dev-tools": [
+            "tools/phpstan",
+            "tools/php-cs-fixer"
+        ]
     },
     "minimum-stability": "stable",
     "prefer-stable": true
