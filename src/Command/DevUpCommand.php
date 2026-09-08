@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Dktaylor\DevToolkit\Command;
 
 use Dktaylor\DevToolkit\Dev\ServerStatus;

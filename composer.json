@@ -40,10 +40,13 @@
             "tools/phpstan/vendor/bin/phpstan analyse --no-progress"
         ],
         "cs-fix": [
-            "tools/php-cs-fixer/vendor/bin/php-cs-fixer fix"
+            "Dktaylor\\DevToolkit\\Composer\\ScriptHandler::csFix"
         ],
         "cs-check": [
-            "tools/php-cs-fixer/vendor/bin/php-cs-fixer fix --dry-run --diff"
+            "Dktaylor\\DevToolkit\\Composer\\ScriptHandler::csCheck"
+        ],
+        "psalm": [
+            "tools/psalm/vendor/bin/psalm --taint-analysis"
         ],
         "security-check": [
             "composer audit"
@@ -54,6 +57,7 @@
         "quality": [
             "@phpstan",
             "@cs-check",
+            "@psalm",
             "@security-check",
             "@test"
         ]
@@ -64,7 +68,8 @@
         },
         "dev-tools": [
             "tools/phpstan",
-            "tools/php-cs-fixer"
+            "tools/php-cs-fixer",
+            "tools/psalm"
         ]
     },
     "minimum-stability": "stable",

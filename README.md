@@ -4,8 +4,8 @@
 
 A small `--dev` Symfony bundle that provides `dev:up` / `dev:down` / `dev:status` / `dev:logs` to
 orchestrate the local environment (Docker + Symfony CLI server + assets), plus a
-`dev-toolkit:install` command that scaffolds a project's quality tooling (PHP-CS-Fixer, PHPStan),
-`Makefile`, a pre-commit hook, and a CI workflow.
+`dev-toolkit:install` command that scaffolds a project's quality tooling (PHP-CS-Fixer, PHPStan,
+Psalm), `Makefile`, a pre-commit hook, and a CI workflow.
 
 ## Requirements
 
@@ -61,16 +61,25 @@ bin/console dev:up
 ## What `dev-toolkit:install` scaffolds
 
 - Files (skipped if present unless `--force`): `.php-cs-fixer.dist.php`, `phpstan.dist.neon`,
-  `Makefile`, `.github/workflows/ci.yaml`, `.githooks/pre-commit`,
-  `tools/phpstan/composer.json`, `tools/php-cs-fixer/composer.json`.
+  `psalm.xml`, `Makefile`, `.github/workflows/ci.yaml`, `.githooks/pre-commit`,
+  `tools/phpstan/composer.json`, `tools/php-cs-fixer/composer.json`, `tools/psalm/composer.json`.
 - `composer.json` (additive, never overwrites existing keys):
-  - scripts: `phpstan`, `cs-fix`, `cs-check`, `security-check`, `test`, `quality`, `install-tools`
+  - scripts: `phpstan`, `cs-fix`, `cs-check`, `psalm`, `security-check`, `test`, `quality`, `install-tools`
   - appends `@install-tools` to `post-install-cmd` / `post-update-cmd`
-  - `extra.dev-tools`: `["tools/phpstan", "tools/php-cs-fixer"]`
+  - `extra.dev-tools`: `["tools/phpstan", "tools/php-cs-fixer", "tools/psalm"]`
 
 The isolated tools live in their own `tools/*` composer projects (kept separate so their dependencies
 don't clash with the app) and are installed automatically on `composer install` for dev — skipped on
 `--no-dev` so production deploys never pull dev tooling.
+
+`cs-fix`/`cs-check` are the one pair of scripts that call into `ScriptHandler` (`::csFix`/`::csCheck`)
+rather than the tool binary directly: PHPStan and Psalm each have their own `phpVersion` config,
+independent of whatever interpreter runs the tool, but PHP-CS-Fixer has no such knob — its fixers gate
+available syntax on the literal running `PHP_VERSION_ID`. `ScriptHandler` re-runs it under a `phpX.Y`
+binary matching the consuming project's own composer.json floor (its `require.php` constraint) when one
+exists on `PATH`, falling back to the default `php` otherwise (e.g. a CI leg with only one PHP version
+installed, where the floor and the runtime are the same thing anyway) — so it never silently applies
+syntax newer than what the project claims to support.
 
 ## Design notes
 

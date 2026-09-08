@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Dktaylor\DevToolkit\Command;
 
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -22,11 +24,13 @@ final class ScaffoldCommand extends Command
     private const FILES = [
         'php-cs-fixer.dist.php' => '.php-cs-fixer.dist.php',
         'phpstan.dist.neon' => 'phpstan.dist.neon',
+        'psalm.xml' => 'psalm.xml',
         'Makefile' => 'Makefile',
         'ci.yaml' => '.github/workflows/ci.yaml',
         'pre-commit' => '.githooks/pre-commit',
         'tools/phpstan/composer.json' => 'tools/phpstan/composer.json',
         'tools/php-cs-fixer/composer.json' => 'tools/php-cs-fixer/composer.json',
+        'tools/psalm/composer.json' => 'tools/psalm/composer.json',
     ];
 
     public function __construct(
@@ -123,11 +127,17 @@ final class ScaffoldCommand extends Command
 
         $defaults = [
             'phpstan' => ['tools/phpstan/vendor/bin/phpstan analyse src tests --no-progress'],
-            'cs-fix' => ['tools/php-cs-fixer/vendor/bin/php-cs-fixer fix'],
-            'cs-check' => ['tools/php-cs-fixer/vendor/bin/php-cs-fixer fix --dry-run --diff'],
+            // Delegated to ScriptHandler (not a plain binary call, unlike phpstan/psalm above) because
+            // PHP-CS-Fixer has no `phpVersion`-style config of its own — its fixers gate available
+            // syntax on the literal interpreter running it. ScriptHandler::csFix()/csCheck() re-run it
+            // under a phpX.Y binary matching this project's own composer.json floor when one exists on
+            // PATH, so it never silently introduces syntax the floor doesn't support.
+            'cs-fix' => ['Dktaylor\\DevToolkit\\Composer\\ScriptHandler::csFix'],
+            'cs-check' => ['Dktaylor\\DevToolkit\\Composer\\ScriptHandler::csCheck'],
+            'psalm' => ['tools/psalm/vendor/bin/psalm --taint-analysis'],
             'security-check' => ['composer audit'],
             'test' => ['phpunit'],
-            'quality' => ['@phpstan', '@cs-check', '@security-check', '@test'],
+            'quality' => ['@phpstan', '@cs-check', '@psalm', '@security-check', '@test'],
             'install-tools' => ['Dktaylor\\DevToolkit\\Composer\\ScriptHandler::installTools'],
         ];
         foreach ($defaults as $name => $value) {
@@ -152,7 +162,7 @@ final class ScaffoldCommand extends Command
 
         $extra = \is_array($data['extra'] ?? null) ? $data['extra'] : [];
         if (!\array_key_exists('dev-tools', $extra)) {
-            $extra['dev-tools'] = ['tools/phpstan', 'tools/php-cs-fixer'];
+            $extra['dev-tools'] = ['tools/phpstan', 'tools/php-cs-fixer', 'tools/psalm'];
             $data['extra'] = $extra;
             $changed = true;
             $io->writeln('  <info>extra</info>  dev-tools');

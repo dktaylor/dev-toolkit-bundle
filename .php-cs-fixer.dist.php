@@ -10,6 +10,7 @@ $finder = (new PhpCsFixer\Finder())
 ;
 
 return (new PhpCsFixer\Config())
+    ->setRiskyAllowed(true)
     ->setRules([
         '@Symfony' => true,
         '@PSR12' => true,
@@ -18,6 +19,9 @@ return (new PhpCsFixer\Config())
         'no_unused_imports' => true,
         'single_quote' => true,
         'yoda_style' => true,
+        // Fail-loud type contracts (no legacy coercion to break) — matches the scaffolded stub.
+        // php-cs-fixer flags this "risky" only because it changes runtime behavior.
+        'declare_strict_types' => true,
     ])
     ->setFinder($finder)
 ;

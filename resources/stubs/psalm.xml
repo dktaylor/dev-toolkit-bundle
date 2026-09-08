@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!-- Added alongside PHPStan (level 6, phpstan.dist.neon) specifically for taint analysis (SQLi/XSS/
+     injection-class checks PHPStan can't do) — errorLevel is deliberately loose (8, least strict) so
+     Psalm's own general type opinions don't pile up as noise on top of PHPStan's already-tuned level;
+     taint-specific issue types (TaintedSql, TaintedHtml, etc.) fire regardless of errorLevel. phpVersion
+     is pinned to the project's own composer.json floor — unlike PHP-CS-Fixer, Psalm has this as an
+     explicit config knob, decoupled from whichever interpreter actually runs it. -->
+<psalm
+    errorLevel="8"
+    phpVersion="8.4"
+    resolveFromConfigFile="true"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config tools/psalm/vendor/vimeo/psalm/config.xsd"
+    findUnusedBaselineEntry="true"
+    findUnusedCode="false"
+>
+    <projectFiles>
+        <directory name="src"/>
+        <ignoreFiles>
+            <directory name="vendor"/>
+        </ignoreFiles>
+    </projectFiles>
+<plugins><pluginClass class="Psalm\SymfonyPsalmPlugin\Plugin"/></plugins></psalm>
