@@ -27,7 +27,16 @@ final class DevUpCommand extends AbstractDevCommand
         $this->reportManualSetup($io);
 
         if (is_file($this->projectDir.'/compose.yaml') || is_file($this->projectDir.'/compose.yml') || is_file($this->projectDir.'/docker-compose.yaml') || is_file($this->projectDir.'/docker-compose.yml')) {
-            if (!$this->runStep($io, $output, 'Starting Docker services', ['docker', 'compose', 'up', '-d'])) {
+            // --wait (not just -d): `docker compose up -d` alone returns as soon as containers are
+            // started, before a service with a healthcheck (e.g. Postgres's start_period) is actually
+            // ready to accept connections. The web server started right after used to capture the
+            // Docker-derived env vars (DATABASE_URL, REDIS_URL, ...) before the real port mapping was
+            // reliably queryable, silently falling back to whatever default is hardcoded in .env —
+            // wrong host/port, and every request timing out against it, for the entire life of that
+            // server process. --wait blocks here instead, until every service with a healthcheck
+            // reports healthy (a service with none just needs to be running, so this doesn't stall on
+            // projects that define no healthchecks at all).
+            if (!$this->runStep($io, $output, 'Starting Docker services', ['docker', 'compose', 'up', '-d', '--wait'])) {
                 return Command::FAILURE;
             }
         }
@@ -131,8 +140,11 @@ final class DevUpCommand extends AbstractDevCommand
             return true;
         }
 
-        // The Symfony CLI stores its local CA under ~/.symfony5/certs (older versions: ~/.symfony/certs).
-        foreach (['/.symfony5/certs/rootCA.pem', '/.symfony/certs/rootCA.pem'] as $relative) {
+        // Current Symfony CLI (5.x) stores its local CA under the XDG config dir,
+        // ~/.config/symfony-cli/certs; older versions used ~/.symfony5/certs, and older still,
+        // ~/.symfony/certs. Check all three so this doesn't go stale again the next time the CLI
+        // changes its layout.
+        foreach (['/.config/symfony-cli/certs/rootCA.pem', '/.symfony5/certs/rootCA.pem', '/.symfony/certs/rootCA.pem'] as $relative) {
             if (is_file($home.$relative)) {
                 return true;
             }
@@ -147,14 +159,24 @@ final class DevUpCommand extends AbstractDevCommand
         // this command's output stream — otherwise it keeps the pipe open and hangs callers that wait
         // for EOF (e.g. `bin/console dev:up | tail`, or a captured subprocess). Readiness and the URL
         // are obtained separately via `server:status`. (POSIX-only redirect; targets Unix/WSL.)
+        //
+        // start(), not run(): `symfony server:start -d` is supposed to daemonize and exit almost
+        // immediately, but observed in practice (spawned as a child of this PHP process specifically —
+        // running the identical command directly from a shell does not reproduce this) to sometimes
+        // never actually detach, instead running the live web server as this Process's own child for
+        // as long as the server stays up. A blocking run() then either hangs the whole command
+        // indefinitely or depends on Process's own timeout/kill signal reaching the right PID through
+        // the shell wrapper (`sh -c '...'`) — a known trouble spot with fromShellCommandline, since the
+        // tracked PID can be the wrapping shell rather than the process actually holding the port.
+        // start() sidesteps needing that to work correctly at all: this method never waits on the
+        // process's own exit, only on the readiness poll below, which has its own bounded timeout.
         $process = Process::fromShellCommandline(
             'symfony server:start -d < /dev/null > /dev/null 2>&1',
             $this->projectDir,
-            timeout: 60,
         );
 
         try {
-            $process->run();
+            $process->start();
         } catch (\Throwable $e) {
             $output->writeln('<error>'.$e->getMessage().'</error>');
 
